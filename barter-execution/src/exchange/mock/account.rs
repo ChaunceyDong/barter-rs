@@ -101,6 +101,10 @@ impl From<UnindexedAccountSnapshot> for AccountState {
                                     strategy: order.strategy,
                                     cid: order.cid,
                                     side: order.side,
+                                    price: order.price,
+                                    quantity: order.quantity,
+                                    kind: order.kind,
+                                    time_in_force: order.time_in_force,
                                     state: open,
                                 },
                             );
@@ -114,6 +118,10 @@ impl From<UnindexedAccountSnapshot> for AccountState {
                                     strategy: order.strategy,
                                     cid: order.cid.clone(),
                                     side: order.side,
+                                    price: order.price,
+                                    quantity: order.quantity,
+                                    kind: order.kind,
+                                    time_in_force: order.time_in_force,
                                     state: cancelled,
                                 },
                             );

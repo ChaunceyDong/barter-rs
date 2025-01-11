@@ -75,19 +75,17 @@ pub struct OpenInFlight;
 pub struct Open {
     pub id: OrderId,
     pub time_exchange: DateTime<Utc>,
-    pub price: Decimal,
-    pub quantity: Decimal,
     pub filled_quantity: Decimal,
 }
 
 impl Open {
-    pub fn quantity_remaining(&self) -> Decimal {
-        self.quantity - self.filled_quantity
+    pub fn quantity_remaining(&self, initial_quantity: Decimal) -> Decimal {
+        initial_quantity - self.filled_quantity
     }
 }
 
 #[derive(
-    Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
+    Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Default, Deserialize, Serialize, Constructor,
 )]
 pub struct CancelInFlight {
     pub id: Option<OrderId>,

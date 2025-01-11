@@ -3,9 +3,11 @@ use crate::engine::state::order::{
 };
 use barter_execution::order::{
     id::ClientOrderId,
-    state::{ActiveOrderState, OrderState},
-    Order, RequestCancel, RequestOpen,
+    request::{OrderRequestCancel, OrderRequestOpen},
+    state::{ActiveOrderState, CancelInFlight, OrderState},
+    Order,
 };
+use barter_instrument::{exchange::ExchangeIndex, instrument::InstrumentIndex};
 use barter_integration::snapshot::Snapshot;
 use derive_more::Constructor;
 use fnv::FnvHashMap;
@@ -34,7 +36,7 @@ pub mod manager;
 /// 3. CancelInFlight - Cancellation request sent to exchange
 /// 4. Cancelled/Expired/FullyFilled - Terminal states, once achieved order is no longer tracked.
 #[derive(Debug, Clone, PartialEq, Deserialize, Serialize, Constructor)]
-pub struct Orders<ExchangeKey, InstrumentKey>(
+pub struct Orders<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex>(
     pub FnvHashMap<ClientOrderId, Order<ExchangeKey, InstrumentKey, ActiveOrderState>>,
 );
 
@@ -90,7 +92,7 @@ where
             // Order untracked, input Snapshot is ActiveOrderState, so insert
             (Entry::Vacant(entry), Some(update)) => {
                 match &update.state {
-                    Open(open) if open.quantity_remaining().is_zero() => {
+                    Open(open) if open.quantity_remaining(update.quantity).is_zero() => {
                         debug!(
                             exchange = ?snapshot.exchange,
                             instrument = ?snapshot.instrument,
@@ -144,7 +146,7 @@ where
                     "OrderManager received a duplicate OpenInFlight recording - ignoring"
                 );
             }
-            (OpenInFlight(_), Open(update)) => {
+            (OpenInFlight(_), Open(open)) => {
                 debug!(
                     exchange = ?snapshot.exchange,
                     instrument = ?snapshot.instrument,
@@ -153,10 +155,10 @@ where
                     update = ?snapshot,
                     "OrderManager transitioned an OpenInFlight order to Open"
                 );
-                if update.quantity_remaining().is_zero() {
+                if open.quantity_remaining(update.quantity).is_zero() {
                     current_entry.remove();
                 } else {
-                    current_entry.get_mut().state = Open(update);
+                    current_entry.get_mut().state = Open(open);
                 }
             }
             (OpenInFlight(_), CancelInFlight(update)) => {
@@ -255,20 +257,25 @@ where
 {
     fn record_in_flight_cancel(
         &mut self,
-        request: &Order<ExchangeKey, InstrumentKey, RequestCancel>,
+        request: &OrderRequestCancel<ExchangeKey, InstrumentKey>,
     ) {
-        if let Some(duplicate_cid_order) = self.0.insert(request.cid.clone(), Order::from(request))
-        {
+        let Some(order) = self.0.get_mut(&request.key.cid) else {
             error!(
-                cid = %duplicate_cid_order.cid,
-                event = ?duplicate_cid_order,
-                "OrderManager upserted Order CancelInFlight with duplicate ClientOrderId"
+                cid = %request.key.cid,
+                event = ?request,
+                "OrderManager cannot mark CancelInFlight for untracked Order - ignoring"
             );
-        }
+            return;
+        };
+
+        order.state = ActiveOrderState::CancelInFlight(CancelInFlight {
+            id: request.state.id.clone(),
+        });
     }
 
-    fn record_in_flight_open(&mut self, request: &Order<ExchangeKey, InstrumentKey, RequestOpen>) {
-        if let Some(duplicate_cid_order) = self.0.insert(request.cid.clone(), Order::from(request))
+    fn record_in_flight_open(&mut self, request: &OrderRequestOpen<ExchangeKey, InstrumentKey>) {
+        if let Some(duplicate_cid_order) =
+            self.0.insert(request.key.cid.clone(), Order::from(request))
         {
             error!(
                 cid = %duplicate_cid_order.cid,
@@ -287,8 +294,9 @@ mod tests {
         error::{ConnectivityError, OrderError},
         order::{
             id::{ClientOrderId, OrderId, StrategyId},
+            request::{OrderRequestCancel, OrderRequestOpen, RequestCancel, RequestOpen},
             state::{ActiveOrderState, CancelInFlight, Cancelled, Open, OpenInFlight},
-            Order, OrderKind, RequestOpen, TimeInForce,
+            Order, OrderKey, OrderKind, TimeInForce,
         },
     };
     use barter_instrument::{exchange::ExchangeId, Side};
@@ -314,8 +322,19 @@ mod tests {
             strategy: StrategyId::unknown(),
             cid,
             side: Side::Buy,
+            price: dec!(1),
+            quantity: dec!(1),
+            kind: OrderKind::Limit,
+            time_in_force: TimeInForce::GoodUntilCancelled { post_only: false },
             state,
         }
+    }
+
+    fn order_cancel_in_flight(cid: ClientOrderId) -> Order<ExchangeId, u64, ActiveOrderState> {
+        order(
+            cid,
+            ActiveOrderState::CancelInFlight(CancelInFlight::default()),
+        )
     }
 
     fn order_snapshot_cancelled(
@@ -327,6 +346,10 @@ mod tests {
             strategy: StrategyId::unknown(),
             cid,
             side: Side::Buy,
+            price: Default::default(),
+            quantity: Default::default(),
+            kind: OrderKind::Market,
+            time_in_force: TimeInForce::GoodUntilEndOfDay,
             state: OrderState::inactive(Cancelled {
                 id: OrderId(SmolStr::default()),
                 time_exchange: Default::default(),
@@ -343,6 +366,10 @@ mod tests {
             strategy: StrategyId::unknown(),
             cid,
             side: Side::Buy,
+            price: Default::default(),
+            quantity: Default::default(),
+            kind: OrderKind::Market,
+            time_in_force: TimeInForce::GoodUntilEndOfDay,
             state: OrderState::fully_filled(),
         })
     }
@@ -356,6 +383,10 @@ mod tests {
             strategy: StrategyId::unknown(),
             cid,
             side: Side::Buy,
+            price: Default::default(),
+            quantity: Default::default(),
+            kind: OrderKind::Market,
+            time_in_force: TimeInForce::GoodUntilEndOfDay,
             state: OrderState::inactive(OrderError::Connectivity(ConnectivityError::Timeout)),
         })
     }
@@ -369,6 +400,10 @@ mod tests {
             strategy: StrategyId::unknown(),
             cid,
             side: Side::Buy,
+            price: Default::default(),
+            quantity: Default::default(),
+            kind: OrderKind::Market,
+            time_in_force: TimeInForce::GoodUntilEndOfDay,
             state: OrderState::expired(),
         })
     }
@@ -383,6 +418,10 @@ mod tests {
             strategy: StrategyId::unknown(),
             cid,
             side: Side::Buy,
+            price: dec!(1),
+            quantity: dec!(1),
+            kind: OrderKind::Limit,
+            time_in_force: TimeInForce::GoodUntilCancelled { post_only: false },
             state: OrderState::active(open(time_exchange)),
         })
     }
@@ -391,53 +430,45 @@ mod tests {
         Open {
             id: OrderId(SmolStr::default()),
             time_exchange,
-            price: dec!(1),
-            quantity: dec!(1),
             filled_quantity: Default::default(),
         }
     }
 
-    fn request_cancels(
-        orders: impl IntoIterator<Item = Order<ExchangeId, u64, RequestCancel>>,
-    ) -> FnvHashMap<ClientOrderId, Order<ExchangeId, u64, ActiveOrderState>> {
-        orders
-            .into_iter()
-            .map(|order| (order.cid.clone(), Order::from(&order)))
-            .collect()
-    }
-
-    fn request_cancel(cid: ClientOrderId) -> Order<ExchangeId, u64, RequestCancel> {
-        Order {
-            exchange: ExchangeId::Simulated,
-            instrument: 1,
-            strategy: StrategyId::unknown(),
-            cid,
-            side: Side::Buy,
-            state: RequestCancel { id: None },
+    fn request_cancel(cid: ClientOrderId) -> OrderRequestCancel<ExchangeId, u64> {
+        OrderRequestCancel {
+            key: OrderKey {
+                exchange: ExchangeId::Simulated,
+                instrument: 1,
+                strategy: StrategyId::unknown(),
+                cid,
+            },
+            state: RequestCancel::default(),
         }
     }
 
     fn request_opens(
-        orders: impl IntoIterator<Item = Order<ExchangeId, u64, RequestOpen>>,
+        orders: impl IntoIterator<Item = OrderRequestOpen<ExchangeId, u64>>,
     ) -> FnvHashMap<ClientOrderId, Order<ExchangeId, u64, ActiveOrderState>> {
         orders
             .into_iter()
-            .map(|order| (order.cid.clone(), Order::from(&order)))
+            .map(|order| (order.key.cid.clone(), Order::from(&order)))
             .collect()
     }
 
-    fn request_open(cid: ClientOrderId) -> Order<ExchangeId, u64, RequestOpen> {
-        Order {
-            exchange: ExchangeId::Simulated,
-            instrument: 1,
-            strategy: StrategyId::unknown(),
-            cid,
-            side: Side::Buy,
+    fn request_open(cid: ClientOrderId) -> OrderRequestOpen<ExchangeId, u64> {
+        OrderRequestOpen {
+            key: OrderKey {
+                exchange: ExchangeId::Simulated,
+                instrument: 1,
+                strategy: StrategyId::unknown(),
+                cid,
+            },
             state: RequestOpen {
+                side: Side::Buy,
+                price: dec!(1),
+                quantity: dec!(1),
                 kind: OrderKind::Limit,
                 time_in_force: TimeInForce::GoodUntilEndOfDay,
-                price: dec!(0.0),
-                quantity: dec!(0.0),
             },
         }
     }
@@ -475,8 +506,6 @@ mod tests {
                     OrderState::active(Open {
                         id: OrderId(SmolStr::default()),
                         time_exchange: time_base,
-                        price: dec!(1),
-                        quantity: dec!(1),
                         filled_quantity: dec!(1),
                     }),
                 )),
@@ -601,8 +630,6 @@ mod tests {
                     OrderState::active(Open {
                         id: OrderId(SmolStr::default()),
                         time_exchange: time_base,
-                        price: dec!(1),
-                        quantity: dec!(1),
                         filled_quantity: dec!(1),
                     }),
                 )),
@@ -732,7 +759,7 @@ mod tests {
     fn test_record_in_flight_cancel() {
         struct TestCase {
             state: Orders<ExchangeId, u64>,
-            input: Vec<Order<ExchangeId, u64, RequestCancel>>,
+            input: Vec<OrderRequestCancel<ExchangeId, u64>>,
             expected: Orders<ExchangeId, u64>,
         }
 
@@ -741,25 +768,22 @@ mod tests {
 
         let cases = vec![
             TestCase {
-                // TC0: Insert untracked InFlight
+                // TC0: Ignore untracked InFlight
                 state: Orders::default(),
                 input: vec![request_cancel(cid_1.clone())],
-                expected: Orders(request_cancels([request_cancel(cid_1.clone())])),
+                expected: Orders::default(),
             },
             TestCase {
                 // TC1: Insert InFlight that is already tracked
-                state: Orders(request_cancels([request_cancel(cid_1.clone())])),
+                state: orders([order_cancel_in_flight(cid_1.clone())]),
                 input: vec![request_cancel(cid_1.clone())],
-                expected: Orders(request_cancels([request_cancel(cid_1.clone())])),
+                expected: orders([order_cancel_in_flight(cid_1.clone())]),
             },
             TestCase {
-                // TC2: Insert one untracked InFlight, and one already tracked
-                state: Orders(request_cancels([request_cancel(cid_1.clone())])),
+                // TC2: Ignore one untracked InFlight, and ignore one already tracked
+                state: orders([order_cancel_in_flight(cid_1.clone())]),
                 input: vec![request_cancel(cid_1.clone()), request_cancel(cid_2.clone())],
-                expected: Orders(request_cancels([
-                    request_cancel(cid_1),
-                    request_cancel(cid_2),
-                ])),
+                expected: orders([order_cancel_in_flight(cid_1)]),
             },
         ];
 
@@ -775,7 +799,7 @@ mod tests {
     fn test_record_in_flight_open() {
         struct TestCase {
             state: Orders<ExchangeId, u64>,
-            input: Vec<Order<ExchangeId, u64, RequestOpen>>,
+            input: Vec<OrderRequestOpen<ExchangeId, u64>>,
             expected: Orders<ExchangeId, u64>,
         }
 
