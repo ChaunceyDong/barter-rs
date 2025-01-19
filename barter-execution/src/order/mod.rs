@@ -225,43 +225,6 @@ where
     }
 }
 
-// impl<ExchangeKey, InstrumentKey> From<&Order<ExchangeKey, InstrumentKey, RequestCancel>>
-//     for Order<ExchangeKey, InstrumentKey, ActiveOrderState>
-// where
-//     ExchangeKey: Clone,
-//     InstrumentKey: Clone,
-// {
-//     fn from(value: &Order<ExchangeKey, InstrumentKey, RequestCancel>) -> Self {
-//         let Order {
-//             exchange,
-//             instrument,
-//             strategy,
-//             cid,
-//             side,
-//             price,
-//             quantity,
-//             kind,
-//             time_in_force,
-//             state,
-//         } = value;
-//
-//         Self {
-//             exchange: exchange.clone(),
-//             instrument: instrument.clone(),
-//             strategy: strategy.clone(),
-//             cid: cid.clone(),
-//             side: *side,
-//             price: *price,
-//             quantity: *quantity,
-//             kind: *kind,
-//             time_in_force: *time_in_force,
-//             state: ActiveOrderState::CancelInFlight(CancelInFlight {
-//                 id: state.id.clone(),
-//             }),
-//         }
-//     }
-// }
-
 impl<ExchangeKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey, Open>>
     for Order<ExchangeKey, InstrumentKey, ActiveOrderState>
 {

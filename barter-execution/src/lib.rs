@@ -87,7 +87,7 @@ pub enum AccountEventKind<ExchangeKey, AssetKey, InstrumentKey> {
     /// Single [`AssetBalance`] snapshot - replaces existing balance state.
     BalanceSnapshot(Snapshot<AssetBalance<AssetKey>>),
 
-    /// Single [`Order`] snapshot - used to upsert existing order state if it's more recnet.
+    /// Single [`Order`] snapshot - used to upsert existing order state if it's more recent.
     ///
     /// This variant covers general order updates, and open order responses.
     OrderSnapshot(Snapshot<Order<ExchangeKey, InstrumentKey, OrderState<AssetKey, InstrumentKey>>>),
