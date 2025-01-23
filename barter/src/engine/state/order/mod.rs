@@ -3,7 +3,7 @@ use crate::engine::state::order::{
 };
 use barter_execution::order::{
     id::ClientOrderId,
-    request::{OrderRequestCancel, OrderRequestOpen},
+    request::{OrderRequestCancel, OrderRequestOpen, OrderResponseCancel},
     state::{ActiveOrderState, CancelInFlight, OrderState},
     Order,
 };
@@ -246,6 +246,29 @@ where
                 );
             }
         }
+    }
+
+    fn update_from_cancel_response<AssetKey>(&mut self, response: &OrderResponseCancel)
+    where
+        AssetKey: Debug + Clone,
+    {
+        let Some(order) = self.0.get_mut(&response.key.cid) else {
+            warn!(
+                exchange = ?response.key.exchange,
+                instrument = ?response.key.instrument,
+                strategy = %response.key.strategy,
+                cid = %response.key.cid,
+                update = ?response,
+                "OrderManager received an OrderResponseCancel for untracked order - ignoring"
+            );
+            return;
+        };
+
+        // Todo: Leverage update_from_order_snapshot -> may be able to do that once
+        //   OrderSnapshots are just OrderState snapshots. ie/ OrderEvent<OrderState>
+        //   '--> maybe worth introducing this in this MR?
+
+        todo!()
     }
 }
 

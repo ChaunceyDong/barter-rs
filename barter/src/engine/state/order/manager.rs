@@ -1,5 +1,6 @@
 use crate::engine::state::order::in_flight_recorder::InFlightRequestRecorder;
 use barter_execution::order::{
+    request::OrderResponseCancel,
     state::{ActiveOrderState, OrderState},
     Order,
 };
@@ -24,5 +25,9 @@ where
         &mut self,
         snapshot: Snapshot<&Order<ExchangeKey, InstrumentKey, OrderState<AssetKey, InstrumentKey>>>,
     ) where
+        AssetKey: Debug + Clone;
+
+    fn update_from_cancel_response<AssetKey>(&mut self, response: &OrderResponseCancel)
+    where
         AssetKey: Debug + Clone;
 }

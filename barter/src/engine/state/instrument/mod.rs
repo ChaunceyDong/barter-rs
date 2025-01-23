@@ -9,6 +9,7 @@ use crate::{
 use barter_data::event::MarketEvent;
 use barter_execution::{
     order::{
+        request::OrderResponseCancel,
         state::{ActiveOrderState, OrderState},
         Order, OrderKey,
     },
@@ -239,6 +240,18 @@ impl<Market, ExchangeKey, AssetKey, InstrumentKey>
         InstrumentKey: Debug + Clone,
     {
         self.orders.update_from_order_snapshot(order);
+    }
+
+    /// Updates the instrument state from an
+    /// [`OrderRequestCancel`](barter_execution::order::request::OrderRequestCancel) response.
+    pub fn update_from_cancel_response(&mut self, response: &OrderResponseCancel)
+    where
+        ExchangeKey: Debug + Clone,
+        AssetKey: Debug + Clone,
+        InstrumentKey: Debug + Clone,
+    {
+        self.orders
+            .update_from_cancel_response::<AssetKey>(response);
     }
 
     /// Updates the instrument state based on a new trade.

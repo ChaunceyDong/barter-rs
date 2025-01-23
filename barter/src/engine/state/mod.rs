@@ -137,8 +137,12 @@ impl<Market, Strategy, Risk> EngineState<Market, Strategy, Risk> {
                     .update_from_order_snapshot(order.as_ref());
                 None
             }
-            AccountEventKind::OrderCancelled(cancel_response) => {
-                todo!()
+            AccountEventKind::OrderCancelled(response) => {
+                self.instruments
+                    .instrument_index_mut(&response.key.instrument)
+                    .update_from_cancel_response(response);
+
+                None
             }
             AccountEventKind::Trade(trade) => self
                 .instruments
