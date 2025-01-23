@@ -88,7 +88,7 @@ impl Open {
     Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Default, Deserialize, Serialize, Constructor,
 )]
 pub struct CancelInFlight {
-    pub id: Option<OrderId>,
+    pub order: Option<Open>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, From)]
