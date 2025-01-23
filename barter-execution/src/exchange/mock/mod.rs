@@ -149,8 +149,8 @@ impl MockExchange {
             .map(UnindexedOrder::from);
 
         let orders_all = orders_open.chain(orders_cancelled);
-        let orders_all = orders_all.sorted_unstable_by_key(|order| order.instrument.clone());
-        let orders_by_instrument = orders_all.chunk_by(|order| order.instrument.clone());
+        let orders_all = orders_all.sorted_unstable_by_key(|order| order.key.instrument.clone());
+        let orders_by_instrument = orders_all.chunk_by(|order| order.key.instrument.clone());
 
         let instruments = orders_by_instrument
             .into_iter()
@@ -344,10 +344,7 @@ impl MockExchange {
         let trade_id = TradeId(order_id.0.clone());
 
         let order_response = Order {
-            exchange: request.key.exchange,
-            instrument: request.key.instrument.clone(),
-            strategy: request.key.strategy.clone(),
-            cid: request.key.cid,
+            key: request.key.clone(),
             side: request.state.side,
             price: request.state.price,
             quantity: request.state.quantity,
@@ -428,10 +425,7 @@ where
     E: Into<UnindexedOrderError>,
 {
     Order {
-        exchange: request.key.exchange,
-        instrument: request.key.instrument,
-        strategy: request.key.strategy,
-        cid: request.key.cid,
+        key: request.key,
         side: request.state.side,
         price: request.state.price,
         quantity: request.state.quantity,

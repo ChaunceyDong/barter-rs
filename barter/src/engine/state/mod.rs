@@ -133,7 +133,7 @@ impl<Market, Strategy, Risk> EngineState<Market, Strategy, Risk> {
             }
             AccountEventKind::OrderSnapshot(order) => {
                 self.instruments
-                    .instrument_index_mut(&order.0.instrument)
+                    .instrument_index_mut(&order.0.key.instrument)
                     .update_from_order_snapshot(order.as_ref());
                 None
             }

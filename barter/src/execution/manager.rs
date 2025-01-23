@@ -360,10 +360,7 @@ where
         order: Order<ExchangeId, InstrumentNameExchange, Result<Open, UnindexedOrderError>>,
     ) -> Result<AccountStreamEvent, IndexError> {
         let Order {
-            exchange,
-            instrument,
-            strategy,
-            cid,
+            key,
             side,
             price,
             quantity,
@@ -372,8 +369,7 @@ where
             state,
         } = order;
 
-        let exchange = self.indexer.map.find_exchange_index(exchange)?;
-        let instrument = self.indexer.map.find_instrument_index(&instrument)?;
+        let key = self.indexer.order_key(key)?;
 
         let state = match state {
             Ok(open) if open.quantity_remaining(quantity).is_zero() => OrderState::fully_filled(),
@@ -382,18 +378,14 @@ where
         };
 
         Ok(AccountStreamEvent::Item(AccountEvent {
-            exchange,
+            exchange: key.exchange,
             kind: AccountEventKind::OrderSnapshot(Snapshot(Order {
-                exchange,
-                instrument,
-                strategy,
-                cid,
+                key,
                 side,
                 price,
                 quantity,
                 kind,
                 time_in_force,
-
                 state,
             })),
         }))
@@ -407,10 +399,7 @@ where
         AccountStreamEvent::Item(AccountEvent {
             exchange: key.exchange,
             kind: AccountEventKind::OrderSnapshot(Snapshot(Order {
-                exchange: key.exchange,
-                instrument: key.instrument,
-                strategy: key.strategy,
-                cid: key.cid,
+                key,
                 side: state.side,
                 price: state.price,
                 quantity: state.quantity,

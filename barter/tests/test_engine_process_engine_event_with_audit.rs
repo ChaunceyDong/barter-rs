@@ -515,10 +515,12 @@ fn test_engine_process_engine_event_with_audit() {
             .get(&gen_cid(1))
             .unwrap(),
         &Order {
-            exchange: ExchangeIndex(0),
-            instrument: InstrumentIndex(1),
-            strategy: strategy_id(),
-            cid: gen_cid(1),
+            key: OrderKey {
+                exchange: ExchangeIndex(0),
+                instrument: InstrumentIndex(1),
+                strategy: strategy_id(),
+                cid: gen_cid(1),
+            },
             side: Side::Sell,
             price: dec!(0.05),
             quantity: dec!(1),
@@ -554,10 +556,12 @@ fn test_engine_process_engine_event_with_audit() {
     let event = EngineEvent::Account(AccountStreamEvent::Item(AccountEvent {
         exchange: ExchangeIndex(0),
         kind: AccountEventKind::OrderSnapshot(Snapshot(Order {
-            exchange: ExchangeIndex(0),
-            instrument: InstrumentIndex(1),
-            strategy: strategy_id(),
-            cid: gen_cid(1),
+            key: OrderKey {
+                exchange: ExchangeIndex(0),
+                instrument: InstrumentIndex(1),
+                strategy: strategy_id(),
+                cid: gen_cid(1),
+            },
             side: Side::Sell,
             price: dec!(0.05),
             quantity: dec!(1),
@@ -902,10 +906,12 @@ fn account_event_order_response(
     EngineEvent::Account(AccountStreamEvent::Item(AccountEvent {
         exchange: ExchangeIndex(0),
         kind: AccountEventKind::OrderSnapshot(Snapshot(Order {
-            exchange: ExchangeIndex(0),
-            instrument: InstrumentIndex(instrument),
-            strategy: strategy_id(),
-            cid: gen_cid(instrument),
+            key: OrderKey {
+                exchange: ExchangeIndex(0),
+                instrument: InstrumentIndex(instrument),
+                strategy: strategy_id(),
+                cid: gen_cid(instrument),
+            },
             side,
             price: Decimal::try_from(price).unwrap(),
             quantity: Decimal::try_from(quantity).unwrap(),

@@ -131,10 +131,7 @@ impl AccountEventIndexer {
         order: UnindexedOrderSnapshot,
     ) -> Result<OrderSnapshot, IndexError> {
         let Order {
-            exchange,
-            instrument,
-            strategy,
-            cid,
+            key,
             side,
             price,
             quantity,
@@ -142,6 +139,8 @@ impl AccountEventIndexer {
             time_in_force,
             state,
         } = order;
+
+        let key = self.order_key(key)?;
 
         let state = match state {
             UnindexedOrderState::Active(active) => OrderState::Active(active),
@@ -161,10 +160,7 @@ impl AccountEventIndexer {
         };
 
         Ok(Order {
-            exchange: self.map.find_exchange_index(exchange)?,
-            instrument: self.map.find_instrument_index(&instrument)?,
-            strategy,
-            cid,
+            key,
             side,
             price,
             quantity,

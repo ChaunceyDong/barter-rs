@@ -73,10 +73,7 @@ pub struct OrderKey<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex
     Debug, Clone, Eq, PartialEq, Ord, PartialOrd, Hash, Deserialize, Serialize, Constructor,
 )]
 pub struct Order<ExchangeKey = ExchangeIndex, InstrumentKey = InstrumentIndex, State = OrderState> {
-    pub exchange: ExchangeKey,
-    pub instrument: InstrumentKey,
-    pub strategy: StrategyId,
-    pub cid: ClientOrderId,
+    pub key: OrderKey<ExchangeKey, InstrumentKey>,
     pub side: Side,
     pub price: Decimal,
     pub quantity: Decimal,
@@ -98,10 +95,7 @@ impl<ExchangeKey, AssetKey, InstrumentKey>
         };
 
         Some(Order {
-            exchange: self.exchange.clone(),
-            instrument: self.instrument.clone(),
-            strategy: self.strategy.clone(),
-            cid: self.cid.clone(),
+            key: self.key.clone(),
             side: self.side,
             price: self.price,
             quantity: self.quantity,
@@ -124,10 +118,7 @@ impl<ExchangeKey, AssetKey, InstrumentKey>
         };
 
         Some(Order {
-            exchange: self.exchange.clone(),
-            instrument: self.instrument.clone(),
-            strategy: self.strategy.clone(),
-            cid: self.cid.clone(),
+            key: self.key.clone(),
             side: self.side,
             price: self.price,
             quantity: self.quantity,
@@ -144,14 +135,7 @@ where
     InstrumentKey: Clone,
 {
     pub fn to_request_cancel(&self) -> Option<OrderRequestCancel<ExchangeKey, InstrumentKey>> {
-        let Order {
-            exchange,
-            instrument,
-            strategy,
-            cid,
-            state,
-            ..
-        } = self;
+        let Order { key, state, .. } = self;
 
         let request_cancel = match state {
             ActiveOrderState::OpenInFlight(_) => RequestCancel { id: None },
@@ -162,12 +146,7 @@ where
         };
 
         Some(OrderRequestCancel {
-            key: OrderKey {
-                exchange: exchange.clone(),
-                instrument: instrument.clone(),
-                strategy: strategy.clone(),
-                cid: cid.clone(),
-            },
+            key: key.clone(),
             state: request_cancel,
         })
     }
@@ -211,10 +190,7 @@ where
         } = value;
 
         Self {
-            exchange: key.exchange.clone(),
-            instrument: key.instrument.clone(),
-            strategy: key.strategy.clone(),
-            cid: key.cid.clone(),
+            key: key.clone(),
             side: *side,
             price: *price,
             quantity: *quantity,
@@ -230,10 +206,7 @@ impl<ExchangeKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey, Open>>
 {
     fn from(value: Order<ExchangeKey, InstrumentKey, Open>) -> Self {
         let Order {
-            exchange,
-            instrument,
-            strategy,
-            cid,
+            key,
             side,
             price,
             quantity,
@@ -243,10 +216,7 @@ impl<ExchangeKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey, Open>>
         } = value;
 
         Self {
-            exchange,
-            instrument,
-            strategy,
-            cid,
+            key,
             side,
             price,
             quantity,
@@ -262,10 +232,7 @@ impl<ExchangeKey, AssetKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey
 {
     fn from(value: Order<ExchangeKey, InstrumentKey, Open>) -> Self {
         let Order {
-            exchange,
-            instrument,
-            strategy,
-            cid,
+            key,
             side,
             price,
             quantity,
@@ -275,10 +242,7 @@ impl<ExchangeKey, AssetKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey
         } = value;
 
         Self {
-            exchange,
-            instrument,
-            strategy,
-            cid,
+            key,
             side,
             price,
             quantity,
@@ -294,10 +258,7 @@ impl<ExchangeKey, AssetKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey
 {
     fn from(value: Order<ExchangeKey, InstrumentKey, Cancelled>) -> Self {
         let Order {
-            exchange,
-            instrument,
-            strategy,
-            cid,
+            key,
             side,
             price,
             quantity,
@@ -307,10 +268,7 @@ impl<ExchangeKey, AssetKey, InstrumentKey> From<Order<ExchangeKey, InstrumentKey
         } = value;
 
         Self {
-            exchange,
-            instrument,
-            strategy,
-            cid,
+            key,
             side,
             price,
             quantity,

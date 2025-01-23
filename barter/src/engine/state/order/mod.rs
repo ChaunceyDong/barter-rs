@@ -73,16 +73,16 @@ where
         let Snapshot(snapshot) = snapshot;
 
         let (mut current_entry, update) = match (
-            self.0.entry(snapshot.cid.clone()),
+            self.0.entry(snapshot.key.cid.clone()),
             snapshot.to_active(),
         ) {
             // Order untracked, input Snapshot is InactiveOrderState (ie/ finished), so ignore
             (Entry::Vacant(_), None) => {
                 warn!(
-                    exchange = ?snapshot.exchange,
-                    instrument = ?snapshot.instrument,
-                    strategy = %snapshot.strategy,
-                    cid = %snapshot.cid,
+                    exchange = ?snapshot.key.exchange,
+                    instrument = ?snapshot.key.instrument,
+                    strategy = %snapshot.key.strategy,
+                    cid = %snapshot.key.cid,
                     update = ?snapshot,
                     "OrderManager received inactive order snapshot for untracked order - ignoring"
                 );
@@ -94,20 +94,20 @@ where
                 match &update.state {
                     Open(open) if open.quantity_remaining(update.quantity).is_zero() => {
                         debug!(
-                            exchange = ?snapshot.exchange,
-                            instrument = ?snapshot.instrument,
-                            strategy = %snapshot.strategy,
-                            cid = %snapshot.cid,
+                            exchange = ?snapshot.key.exchange,
+                            instrument = ?snapshot.key.instrument,
+                            strategy = %snapshot.key.strategy,
+                            cid = %snapshot.key.cid,
                             update = ?snapshot,
                             "OrderManager ignoring new Open order which is actually FulledFilled"
                         );
                     }
                     _active_order => {
                         debug!(
-                            exchange = ?snapshot.exchange,
-                            instrument = ?snapshot.instrument,
-                            strategy = %snapshot.strategy,
-                            cid = %snapshot.cid,
+                            exchange = ?snapshot.key.exchange,
+                            instrument = ?snapshot.key.instrument,
+                            strategy = %snapshot.key.strategy,
+                            cid = %snapshot.key.cid,
                             update = ?snapshot,
                             "OrderManager tracking new order"
                         );
@@ -120,10 +120,10 @@ where
             // Order tracked, input Snapshot is InactiveOrderState (ie/ finished), so remove
             (Entry::Occupied(entry), None) => {
                 debug!(
-                    exchange = ?snapshot.exchange,
-                    instrument = ?snapshot.instrument,
-                    strategy = %snapshot.strategy,
-                    cid = %snapshot.cid,
+                    exchange = ?snapshot.key.exchange,
+                    instrument = ?snapshot.key.instrument,
+                    strategy = %snapshot.key.strategy,
+                    cid = %snapshot.key.cid,
                     update = ?snapshot,
                     "OrderManager received inactive order snapshot for tracked order - removing"
                 );
@@ -138,20 +138,20 @@ where
         match (&current_entry.get().state, update.state) {
             (OpenInFlight(_), OpenInFlight(_)) => {
                 warn!(
-                    exchange = ?snapshot.exchange,
-                    instrument = ?snapshot.instrument,
-                    strategy = %snapshot.strategy,
-                    cid = %snapshot.cid,
+                    exchange = ?snapshot.key.exchange,
+                    instrument = ?snapshot.key.instrument,
+                    strategy = %snapshot.key.strategy,
+                    cid = %snapshot.key.cid,
                     update = ?snapshot,
                     "OrderManager received a duplicate OpenInFlight recording - ignoring"
                 );
             }
             (OpenInFlight(_), Open(open)) => {
                 debug!(
-                    exchange = ?snapshot.exchange,
-                    instrument = ?snapshot.instrument,
-                    strategy = %snapshot.strategy,
-                    cid = %snapshot.cid,
+                    exchange = ?snapshot.key.exchange,
+                    instrument = ?snapshot.key.instrument,
+                    strategy = %snapshot.key.strategy,
+                    cid = %snapshot.key.cid,
                     update = ?snapshot,
                     "OrderManager transitioned an OpenInFlight order to Open"
                 );
@@ -163,10 +163,10 @@ where
             }
             (OpenInFlight(_), CancelInFlight(update)) => {
                 debug!(
-                    exchange = ?snapshot.exchange,
-                    instrument = ?snapshot.instrument,
-                    strategy = %snapshot.strategy,
-                    cid = %snapshot.cid,
+                    exchange = ?snapshot.key.exchange,
+                    instrument = ?snapshot.key.instrument,
+                    strategy = %snapshot.key.strategy,
+                    cid = %snapshot.key.cid,
                     update = ?snapshot,
                     "OrderManager transitioned an OpenInFlight order to CancelInFlight"
                 );
@@ -174,10 +174,10 @@ where
             }
             (Open(_), OpenInFlight(_)) => {
                 warn!(
-                    exchange = ?snapshot.exchange,
-                    instrument = ?snapshot.instrument,
-                    strategy = %snapshot.strategy,
-                    cid = %snapshot.cid,
+                    exchange = ?snapshot.key.exchange,
+                    instrument = ?snapshot.key.instrument,
+                    strategy = %snapshot.key.strategy,
+                    cid = %snapshot.key.cid,
                     update = ?snapshot,
                     "OrderManager received an OpenInFlight recording for an Open order - ignoring"
                 );
@@ -185,20 +185,20 @@ where
             (Open(current), Open(update)) => {
                 if current.time_exchange <= update.time_exchange {
                     debug!(
-                        exchange = ?snapshot.exchange,
-                        instrument = ?snapshot.instrument,
-                        strategy = %snapshot.strategy,
-                        cid = %snapshot.cid,
+                        exchange = ?snapshot.key.exchange,
+                        instrument = ?snapshot.key.instrument,
+                        strategy = %snapshot.key.strategy,
+                        cid = %snapshot.key.cid,
                         update = ?snapshot,
                         "OrderManager updating an Open order from a more recent snapshot"
                     );
                     current_entry.get_mut().state = Open(update);
                 } else {
                     debug!(
-                        exchange = ?snapshot.exchange,
-                        instrument = ?snapshot.instrument,
-                        strategy = %snapshot.strategy,
-                        cid = %snapshot.cid,
+                        exchange = ?snapshot.key.exchange,
+                        instrument = ?snapshot.key.instrument,
+                        strategy = %snapshot.key.strategy,
+                        cid = %snapshot.key.cid,
                         update = ?snapshot,
                         "OrderManager received an out of sequence Open order snapshot - ignoring"
                     );
@@ -206,10 +206,10 @@ where
             }
             (Open(_), CancelInFlight(update)) => {
                 debug!(
-                    exchange = ?snapshot.exchange,
-                    instrument = ?snapshot.instrument,
-                    strategy = %snapshot.strategy,
-                    cid = %snapshot.cid,
+                    exchange = ?snapshot.key.exchange,
+                    instrument = ?snapshot.key.instrument,
+                    strategy = %snapshot.key.strategy,
+                    cid = %snapshot.key.cid,
                     update = ?snapshot,
                     "OrderManager transitioned an Open order to CancelInFlight"
                 );
@@ -217,30 +217,30 @@ where
             }
             (CancelInFlight(_), OpenInFlight(_)) => {
                 error!(
-                    exchange = ?snapshot.exchange,
-                    instrument = ?snapshot.instrument,
-                    strategy = %snapshot.strategy,
-                    cid = %snapshot.cid,
+                    exchange = ?snapshot.key.exchange,
+                    instrument = ?snapshot.key.instrument,
+                    strategy = %snapshot.key.strategy,
+                    cid = %snapshot.key.cid,
                     update = ?snapshot,
                     "OrderManager received an OpenInFlight recording for a CancelInFlight - ignoring"
                 );
             }
             (CancelInFlight(_), Open(_)) => {
                 debug!(
-                    exchange = ?snapshot.exchange,
-                    instrument = ?snapshot.instrument,
-                    strategy = %snapshot.strategy,
-                    cid = %snapshot.cid,
+                    exchange = ?snapshot.key.exchange,
+                    instrument = ?snapshot.key.instrument,
+                    strategy = %snapshot.key.strategy,
+                    cid = %snapshot.key.cid,
                     update = ?snapshot,
                     "OrderManager received an Open order snapshot for a CancelInFlight - ignoring"
                 );
             }
             (CancelInFlight(_), CancelInFlight(_)) => {
                 warn!(
-                    exchange = ?snapshot.exchange,
-                    instrument = ?snapshot.instrument,
-                    strategy = %snapshot.strategy,
-                    cid = %snapshot.cid,
+                    exchange = ?snapshot.key.exchange,
+                    instrument = ?snapshot.key.instrument,
+                    strategy = %snapshot.key.strategy,
+                    cid = %snapshot.key.cid,
                     update = ?snapshot,
                     "OrderManager received a duplicate CancelInFlight recording - ignoring"
                 );
@@ -278,7 +278,7 @@ where
             self.0.insert(request.key.cid.clone(), Order::from(request))
         {
             error!(
-                cid = %duplicate_cid_order.cid,
+                cid = %duplicate_cid_order.key.cid,
                 event = ?duplicate_cid_order,
                 "OrderManager upserted Order OpenInFlight with duplicate ClientOrderId"
             );
@@ -310,17 +310,19 @@ mod tests {
         Orders(
             orders
                 .into_iter()
-                .map(|order| (order.cid.clone(), order))
+                .map(|order| (order.key.cid.clone(), order))
                 .collect(),
         )
     }
 
     fn order<State>(cid: ClientOrderId, state: State) -> Order<ExchangeId, u64, State> {
         Order {
-            exchange: ExchangeId::Simulated,
-            instrument: 1,
-            strategy: StrategyId::unknown(),
-            cid,
+            key: OrderKey {
+                exchange: ExchangeId::Simulated,
+                instrument: 1,
+                strategy: StrategyId::unknown(),
+                cid,
+            },
             side: Side::Buy,
             price: dec!(1),
             quantity: dec!(1),
@@ -341,10 +343,12 @@ mod tests {
         cid: ClientOrderId,
     ) -> Snapshot<Order<ExchangeId, u64, OrderState<u64, u64>>> {
         Snapshot(Order {
-            exchange: ExchangeId::Simulated,
-            instrument: 1,
-            strategy: StrategyId::unknown(),
-            cid,
+            key: OrderKey {
+                exchange: ExchangeId::Simulated,
+                instrument: 1,
+                strategy: StrategyId::unknown(),
+                cid,
+            },
             side: Side::Buy,
             price: Default::default(),
             quantity: Default::default(),
@@ -361,10 +365,12 @@ mod tests {
         cid: ClientOrderId,
     ) -> Snapshot<Order<ExchangeId, u64, OrderState<u64, u64>>> {
         Snapshot(Order {
-            exchange: ExchangeId::Simulated,
-            instrument: 1,
-            strategy: StrategyId::unknown(),
-            cid,
+            key: OrderKey {
+                exchange: ExchangeId::Simulated,
+                instrument: 1,
+                strategy: StrategyId::unknown(),
+                cid,
+            },
             side: Side::Buy,
             price: Default::default(),
             quantity: Default::default(),
@@ -378,10 +384,12 @@ mod tests {
         cid: ClientOrderId,
     ) -> Snapshot<Order<ExchangeId, u64, OrderState<u64, u64>>> {
         Snapshot(Order {
-            exchange: ExchangeId::Simulated,
-            instrument: 1,
-            strategy: StrategyId::unknown(),
-            cid,
+            key: OrderKey {
+                exchange: ExchangeId::Simulated,
+                instrument: 1,
+                strategy: StrategyId::unknown(),
+                cid,
+            },
             side: Side::Buy,
             price: Default::default(),
             quantity: Default::default(),
@@ -395,10 +403,12 @@ mod tests {
         cid: ClientOrderId,
     ) -> Snapshot<Order<ExchangeId, u64, OrderState<u64, u64>>> {
         Snapshot(Order {
-            exchange: ExchangeId::Simulated,
-            instrument: 1,
-            strategy: StrategyId::unknown(),
-            cid,
+            key: OrderKey {
+                exchange: ExchangeId::Simulated,
+                instrument: 1,
+                strategy: StrategyId::unknown(),
+                cid,
+            },
             side: Side::Buy,
             price: Default::default(),
             quantity: Default::default(),
@@ -413,10 +423,12 @@ mod tests {
         time_exchange: DateTime<Utc>,
     ) -> Snapshot<Order<ExchangeId, u64, OrderState<u64, u64>>> {
         Snapshot(Order {
-            exchange: ExchangeId::Simulated,
-            instrument: 1,
-            strategy: StrategyId::unknown(),
-            cid,
+            key: OrderKey {
+                exchange: ExchangeId::Simulated,
+                instrument: 1,
+                strategy: StrategyId::unknown(),
+                cid,
+            },
             side: Side::Buy,
             price: dec!(1),
             quantity: dec!(1),

@@ -10,7 +10,7 @@ use barter_data::event::MarketEvent;
 use barter_execution::{
     order::{
         state::{ActiveOrderState, OrderState},
-        Order,
+        Order, OrderKey,
     },
     trade::Trade,
     InstrumentAccountSnapshot,
@@ -308,10 +308,7 @@ where
             .orders()
             .filter_map(|order| {
                 let Order {
-                    exchange: _,
-                    instrument: _,
-                    strategy,
-                    cid,
+                    key,
                     side,
                     price,
                     quantity,
@@ -324,10 +321,12 @@ where
                 };
 
                 Some(Order {
-                    exchange,
-                    instrument: instrument.name_exchange.clone(),
-                    strategy: strategy.clone(),
-                    cid: cid.clone(),
+                    key: OrderKey {
+                        exchange,
+                        instrument: instrument.name_exchange.clone(),
+                        strategy: key.strategy.clone(),
+                        cid: key.cid.clone(),
+                    },
                     side: *side,
                     price: *price,
                     quantity: *quantity,
