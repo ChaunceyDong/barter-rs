@@ -252,7 +252,10 @@ where
         }
     }
 
-    fn update_from_cancel_response<AssetKey>(&mut self, response: &OrderResponseCancel)
+    fn update_from_cancel_response<AssetKey>(
+        &mut self,
+        response: &OrderResponseCancel<ExchangeKey, AssetKey, InstrumentKey>
+    )
     where
         AssetKey: Debug + Clone,
     {
@@ -392,6 +395,9 @@ mod tests {
     use chrono::{DateTime, Utc};
     use rust_decimal_macros::dec;
     use smol_str::SmolStr;
+    use barter_execution::error::KeyError::ExchangeId;
+    use barter_execution::order::OrderEvent;
+    use barter_execution::order::state::InactiveOrderState::Cancelled;
 
     fn orders(
         orders: impl IntoIterator<Item = Order<ExchangeId, u64, ActiveOrderState>>,
@@ -421,10 +427,28 @@ mod tests {
         }
     }
 
+    fn order_open_in_flight(cid: ClientOrderId) -> Order<ExchangeId, u64, ActiveOrderState> {
+        order(
+            cid,
+            ActiveOrderState::OpenInFlight(OpenInFlight),
+        )
+    }
+
     fn order_cancel_in_flight(cid: ClientOrderId) -> Order<ExchangeId, u64, ActiveOrderState> {
         order(
             cid,
-            ActiveOrderState::CancelInFlight(CancelInFlight::default()),
+            ActiveOrderState::CancelInFlight(CancelInFlight {
+                order: None,
+            }),
+        )
+    }
+
+    fn order_cancel_in_flight_prev_open(cid: ClientOrderId, time_exchange: DateTime<Utc>) -> Order<ExchangeId, u64, ActiveOrderState> {
+        order(
+            cid,
+            ActiveOrderState::CancelInFlight(CancelInFlight {
+                order: Some(open(time_exchange)),
+            }),
         )
     }
 
@@ -571,6 +595,33 @@ mod tests {
                 kind: OrderKind::Limit,
                 time_in_force: TimeInForce::GoodUntilEndOfDay,
             },
+        }
+    }
+
+    fn response_cancel_ok() -> OrderResponseCancel<ExchangeId, u64, u64> {
+        OrderResponseCancel {
+            key: OrderKey {
+                exchange: ExchangeId::Simulated,
+                instrument: 1,
+                strategy: StrategyId::unknown(),
+                cid,
+            },
+            state: Ok(Cancelled {
+                id: None,
+                time_exchange: DateTime::<Utc>::MIN_UTC
+            }),
+        }
+    }
+
+    fn response_cancel_err() -> OrderResponseCancel<ExchangeId, u64, u64> {
+        OrderResponseCancel {
+            key: OrderKey {
+                exchange: ExchangeId::Simulated,
+                instrument: 1,
+                strategy: StrategyId::unknown(),
+                cid,
+            },
+            state: Err(OrderError::Connectivity(ConnectivityError::Timeout)),
         }
     }
 
@@ -853,6 +904,33 @@ mod tests {
         for mut test in cases.into_iter() {
             test.state.update_from_order_snapshot(test.input.as_ref());
             assert_eq!(test.state, test.expected, "TC failed: {}", test.name)
+        }
+    }
+
+    #[test]
+    fn test_update_from_cancel_response() {
+        struct TestCase {
+            name: &'static str,
+            state: Orders<ExchangeId, u64>,
+            input: OrderResponseCancel<ExchangeId, u64, u64>,
+            expected: Orders<ExchangeId, u64>
+        }
+
+        let cid = ClientOrderId::default();
+        let time_base = DateTime::<Utc>::MIN_UTC;
+
+        let cases = vec![
+            TestCase {
+                name: "",
+                state: Default::default(),
+                input: OrderEvent {},
+                expected: Default::default(),
+            }
+        ];
+
+        for mut test in cases.into_iter() {
+            test.state.update_from_cancel_response(&test.input);
+            assert_eq!(test.state, test.expected, "TC {name} failed");
         }
     }
 
