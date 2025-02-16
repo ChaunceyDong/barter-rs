@@ -244,8 +244,10 @@ impl<Market, ExchangeKey, AssetKey, InstrumentKey>
 
     /// Updates the instrument state from an
     /// [`OrderRequestCancel`](barter_execution::order::request::OrderRequestCancel) response.
-    pub fn update_from_cancel_response(&mut self, response: &OrderResponseCancel)
-    where
+    pub fn update_from_cancel_response(
+        &mut self,
+        response: &OrderResponseCancel<ExchangeKey, AssetKey, InstrumentKey>,
+    ) where
         ExchangeKey: Debug + Clone,
         AssetKey: Debug + Clone,
         InstrumentKey: Debug + Clone,

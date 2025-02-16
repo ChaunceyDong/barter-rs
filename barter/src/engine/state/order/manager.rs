@@ -27,7 +27,9 @@ where
     ) where
         AssetKey: Debug + Clone;
 
-    fn update_from_cancel_response<AssetKey>(&mut self, response: &OrderResponseCancel)
-    where
+    fn update_from_cancel_response<AssetKey>(
+        &mut self,
+        response: &OrderResponseCancel<ExchangeKey, AssetKey, InstrumentKey>,
+    ) where
         AssetKey: Debug + Clone;
 }

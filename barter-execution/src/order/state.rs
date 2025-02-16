@@ -50,12 +50,16 @@ pub enum ActiveOrderState {
 }
 
 impl ActiveOrderState {
-    pub fn order_id(&self) -> Option<OrderId> {
+    pub fn open_meta(&self) -> Option<&Open> {
         match self {
-            ActiveOrderState::OpenInFlight(_) => None,
-            ActiveOrderState::Open(state) => Some(state.id.clone()),
-            ActiveOrderState::CancelInFlight(state) => state.id.clone(),
+            Self::OpenInFlight(_) => None,
+            Self::Open(open) => Some(open),
+            Self::CancelInFlight(cancel) => cancel.order.as_ref(),
         }
+    }
+
+    pub fn order_id(&self) -> Option<&OrderId> {
+        self.open_meta().map(|open| &open.id)
     }
 
     pub fn is_open_or_in_flight(&self) -> bool {

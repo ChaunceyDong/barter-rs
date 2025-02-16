@@ -1,14 +1,11 @@
 use crate::engine::state::order::{
     in_flight_recorder::InFlightRequestRecorder, manager::OrderManager,
 };
-use barter_execution::{
-    error::OrderError,
-    order::{
-        id::{ClientOrderId, OrderId},
-        request::{OrderRequestCancel, OrderRequestOpen, OrderResponseCancel},
-        state::{ActiveOrderState, CancelInFlight, Cancelled, Open, OrderState},
-        Order,
-    },
+use barter_execution::order::{
+    id::ClientOrderId,
+    request::{OrderRequestCancel, OrderRequestOpen, OrderResponseCancel},
+    state::{ActiveOrderState, CancelInFlight, OrderState},
+    Order,
 };
 use barter_instrument::{exchange::ExchangeIndex, instrument::InstrumentIndex};
 use barter_integration::snapshot::Snapshot;
@@ -17,7 +14,6 @@ use fnv::FnvHashMap;
 use serde::{Deserialize, Serialize};
 use std::{collections::hash_map::Entry, fmt::Debug};
 use tracing::{debug, error, warn};
-use tracing_subscriber::filter::combinator::Or;
 
 pub mod in_flight_recorder;
 pub mod manager;
@@ -254,9 +250,8 @@ where
 
     fn update_from_cancel_response<AssetKey>(
         &mut self,
-        response: &OrderResponseCancel<ExchangeKey, AssetKey, InstrumentKey>
-    )
-    where
+        response: &OrderResponseCancel<ExchangeKey, AssetKey, InstrumentKey>,
+    ) where
         AssetKey: Debug + Clone,
     {
         let Entry::Occupied(mut order) = self.0.entry(response.key.cid.clone()) else {
@@ -290,7 +285,7 @@ where
                     strategy = %response.key.strategy,
                     cid = %response.key.cid,
                     update = ?response,
-                    %error,
+                    ?error,
                     "OrderManager received Err(Cancelled) for tracked order not CancelInFlight - ignoring"
                 );
             }
@@ -314,6 +309,7 @@ where
                         strategy = %response.key.strategy,
                         cid = %response.key.cid,
                         update = ?response,
+                        ?error,
                         "OrderManager received Err(Cancelled) for previously Open order - setting Open"
                     );
                     order.get_mut().state = ActiveOrderState::Open(open.clone())
@@ -324,6 +320,7 @@ where
                         strategy = %response.key.strategy,
                         cid = %response.key.cid,
                         update = ?response,
+                        ?error,
                         "OrderManager received Err(Cancelled) for previously non-Open order - removing"
                     );
                     // Likely previously OpenInFlight, and attempted cancel before Open snapshot
@@ -361,7 +358,7 @@ where
         };
 
         order.state = ActiveOrderState::CancelInFlight(CancelInFlight {
-            id: request.state.id.clone(),
+            order: order.state.open_meta().cloned(),
         });
     }
 
@@ -386,18 +383,14 @@ mod tests {
         error::{ConnectivityError, OrderError},
         order::{
             id::{ClientOrderId, OrderId, StrategyId},
-            request::{OrderRequestCancel, OrderRequestOpen, RequestCancel, RequestOpen},
             state::{ActiveOrderState, CancelInFlight, Cancelled, Open, OpenInFlight},
-            Order, OrderKey, OrderKind, TimeInForce,
+            Order, OrderKind, TimeInForce,
         },
     };
     use barter_instrument::{exchange::ExchangeId, Side};
     use chrono::{DateTime, Utc};
     use rust_decimal_macros::dec;
     use smol_str::SmolStr;
-    use barter_execution::error::KeyError::ExchangeId;
-    use barter_execution::order::OrderEvent;
-    use barter_execution::order::state::InactiveOrderState::Cancelled;
 
     fn orders(
         orders: impl IntoIterator<Item = Order<ExchangeId, u64, ActiveOrderState>>,
@@ -428,22 +421,20 @@ mod tests {
     }
 
     fn order_open_in_flight(cid: ClientOrderId) -> Order<ExchangeId, u64, ActiveOrderState> {
-        order(
-            cid,
-            ActiveOrderState::OpenInFlight(OpenInFlight),
-        )
+        order(cid, ActiveOrderState::OpenInFlight(OpenInFlight))
     }
 
     fn order_cancel_in_flight(cid: ClientOrderId) -> Order<ExchangeId, u64, ActiveOrderState> {
         order(
             cid,
-            ActiveOrderState::CancelInFlight(CancelInFlight {
-                order: None,
-            }),
+            ActiveOrderState::CancelInFlight(CancelInFlight { order: None }),
         )
     }
 
-    fn order_cancel_in_flight_prev_open(cid: ClientOrderId, time_exchange: DateTime<Utc>) -> Order<ExchangeId, u64, ActiveOrderState> {
+    fn order_cancel_in_flight_prev_open(
+        cid: ClientOrderId,
+        time_exchange: DateTime<Utc>,
+    ) -> Order<ExchangeId, u64, ActiveOrderState> {
         order(
             cid,
             ActiveOrderState::CancelInFlight(CancelInFlight {
@@ -608,7 +599,7 @@ mod tests {
             },
             state: Ok(Cancelled {
                 id: None,
-                time_exchange: DateTime::<Utc>::MIN_UTC
+                time_exchange: DateTime::<Utc>::MIN_UTC,
             }),
         }
     }
@@ -913,20 +904,18 @@ mod tests {
             name: &'static str,
             state: Orders<ExchangeId, u64>,
             input: OrderResponseCancel<ExchangeId, u64, u64>,
-            expected: Orders<ExchangeId, u64>
+            expected: Orders<ExchangeId, u64>,
         }
 
         let cid = ClientOrderId::default();
         let time_base = DateTime::<Utc>::MIN_UTC;
 
-        let cases = vec![
-            TestCase {
-                name: "",
-                state: Default::default(),
-                input: OrderEvent {},
-                expected: Default::default(),
-            }
-        ];
+        let cases = vec![TestCase {
+            name: "",
+            state: Default::default(),
+            input: OrderEvent {},
+            expected: Default::default(),
+        }];
 
         for mut test in cases.into_iter() {
             test.state.update_from_cancel_response(&test.input);
