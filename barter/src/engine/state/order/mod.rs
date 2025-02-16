@@ -383,8 +383,9 @@ mod tests {
         error::{ConnectivityError, OrderError},
         order::{
             id::{ClientOrderId, OrderId, StrategyId},
+            request::{RequestCancel, RequestOpen},
             state::{ActiveOrderState, CancelInFlight, Cancelled, Open, OpenInFlight},
-            Order, OrderKind, TimeInForce,
+            Order, OrderEvent, OrderKey, OrderKind, TimeInForce,
         },
     };
     use barter_instrument::{exchange::ExchangeId, Side};
@@ -718,7 +719,7 @@ mod tests {
                 name: "tracked CancelInFlight, Snapshot is inactive cancelled, so remove",
                 state: orders([order(
                     cid.clone(),
-                    ActiveOrderState::CancelInFlight(CancelInFlight { id: None }),
+                    ActiveOrderState::CancelInFlight(CancelInFlight { order: None }),
                 )]),
                 input: order_snapshot_cancelled(cid.clone()),
                 expected: Orders::default(),
@@ -727,7 +728,7 @@ mod tests {
                 name: "tracked CancelInFlight, Snapshot is inactive fully filled, so remove",
                 state: orders([order(
                     cid.clone(),
-                    ActiveOrderState::CancelInFlight(CancelInFlight { id: None }),
+                    ActiveOrderState::CancelInFlight(CancelInFlight { order: None }),
                 )]),
                 input: order_snapshot_fully_filled(cid.clone()),
                 expected: Orders::default(),
@@ -736,7 +737,7 @@ mod tests {
                 name: "tracked CancelInFlight, Snapshot is inactive failed, so remove",
                 state: orders([order(
                     cid.clone(),
-                    ActiveOrderState::CancelInFlight(CancelInFlight { id: None }),
+                    ActiveOrderState::CancelInFlight(CancelInFlight { order: None }),
                 )]),
                 input: order_snapshot_failed(cid.clone()),
                 expected: Orders::default(),
@@ -745,7 +746,7 @@ mod tests {
                 name: "tracked CancelInFlight, Snapshot is inactive expired, so remove",
                 state: orders([order(
                     cid.clone(),
-                    ActiveOrderState::CancelInFlight(CancelInFlight { id: None }),
+                    ActiveOrderState::CancelInFlight(CancelInFlight { order: None }),
                 )]),
                 input: order_snapshot_expired(cid.clone()),
                 expected: Orders::default(),
@@ -795,11 +796,11 @@ mod tests {
                 )]),
                 input: Snapshot(order(
                     cid.clone(),
-                    OrderState::active(CancelInFlight { id: None }),
+                    OrderState::active(CancelInFlight { order: None }),
                 )),
                 expected: orders([order(
                     cid.clone(),
-                    ActiveOrderState::CancelInFlight(CancelInFlight { id: None }),
+                    ActiveOrderState::CancelInFlight(CancelInFlight { order: None }),
                 )]),
             },
             TestCase {
@@ -843,35 +844,35 @@ mod tests {
                 )]),
                 input: Snapshot(order(
                     cid.clone(),
-                    OrderState::active(CancelInFlight { id: None }),
+                    OrderState::active(CancelInFlight { order: None }),
                 )),
                 expected: orders([order(
                     cid.clone(),
-                    ActiveOrderState::CancelInFlight(CancelInFlight { id: None }),
+                    ActiveOrderState::CancelInFlight(CancelInFlight { order: None }),
                 )]),
             },
             TestCase {
                 name: "tracked CancelInFlight, Snapshot is active OpenInFlight, so ignore",
                 state: orders([order(
                     cid.clone(),
-                    ActiveOrderState::CancelInFlight(CancelInFlight { id: None }),
+                    ActiveOrderState::CancelInFlight(CancelInFlight { order: None }),
                 )]),
                 input: Snapshot(order(cid.clone(), OrderState::active(OpenInFlight))),
                 expected: orders([order(
                     cid.clone(),
-                    ActiveOrderState::CancelInFlight(CancelInFlight { id: None }),
+                    ActiveOrderState::CancelInFlight(CancelInFlight { order: None }),
                 )]),
             },
             TestCase {
                 name: "tracked CancelInFlight, Snapshot is active Open, so ignore",
                 state: orders([order(
                     cid.clone(),
-                    ActiveOrderState::CancelInFlight(CancelInFlight { id: None }),
+                    ActiveOrderState::CancelInFlight(CancelInFlight { order: None }),
                 )]),
                 input: order_snapshot_open(cid.clone(), time_base),
                 expected: orders([order(
                     cid.clone(),
-                    ActiveOrderState::CancelInFlight(CancelInFlight { id: None }),
+                    ActiveOrderState::CancelInFlight(CancelInFlight { order: None }),
                 )]),
             },
             TestCase {
@@ -879,15 +880,15 @@ mod tests {
                     "tracked CancelInFlight, Snapshot is active CancelInFlight, so ignore duplicate",
                 state: orders([order(
                     cid.clone(),
-                    ActiveOrderState::CancelInFlight(CancelInFlight { id: None }),
+                    ActiveOrderState::CancelInFlight(CancelInFlight { order: None }),
                 )]),
                 input: Snapshot(order(
                     cid.clone(),
-                    OrderState::active(CancelInFlight { id: None }),
+                    OrderState::active(CancelInFlight { order: None }),
                 )),
                 expected: orders([order(
                     cid.clone(),
-                    ActiveOrderState::CancelInFlight(CancelInFlight { id: None }),
+                    ActiveOrderState::CancelInFlight(CancelInFlight { order: None }),
                 )]),
             },
         ];
